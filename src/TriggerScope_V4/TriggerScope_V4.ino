@@ -105,6 +105,11 @@
          Format: "SSLn" where
          - n - 0 ("Off") or 1 ("On")
          Signal LEDs are On by default 
+ "STI" - Set Trigger Input.
+         Selects which of the 4 trigger input lines is used for triggered sequencing and blanking.
+         Format: "STIn" where
+         - n - 1-4 (trigger input line)
+         Trigger input 1 is used by default
  
 
 
@@ -164,6 +169,7 @@ const char* helpString = "Available commands: \r\n"
   "BDn-s-t - sync digital output with input trigger. n = pin group 0(1-8) or 1 (9-16)\r\n"
   "          s = 0 stops 1 starts, t = output low when trigger low (0), or inverse (1)\r\n"
   "SSLn - switches use of signal LEDs.  n=0 (Off) or n=1 (On)\r\n"
+  "STIn - selects the trigger input line.  n=1-4\r\n"
   "\r\n"; // empty line to signal end of help textd
 
 
@@ -187,6 +193,14 @@ boolean stringComplete = false;  // whether the string is complete
 const byte DAC[NR_DACS] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; //MOVE THESE FOR CUSTOMERS IF NEEDED!
 const byte ttl[NR_DACS] = {5,6,7,8,14,15,16,17,20,0,1,2,3,4,5,6}; //ttl pin #'s
 const byte trig[4] = {0,1,2,3};
+
+byte trigInput = 0;  // index into trig[] of the input line used for triggering, set with STI
+
+// state of the selected trigger input line
+inline bool readTrigger() __attribute__((always_inline));
+inline bool readTrigger(){
+    return digitalReadFast(trig[trigInput]);
+}
 
 /*HIGH SPEED PROGRAMMING MODE MEMORY BLOCK*/
 int    dacArray[NR_DAC_STATES][NR_DACS] = {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}; // DACprogram list
@@ -261,6 +275,7 @@ const char* bdoErrorString = "!ERROR_BDO: Format: BDOn-s-t n=pingroup 0-1, s bla
 const char* pdcErrorString = "!ERROR_PDC: Format: PDCn n=pinGroup(1/2)";   
 const char* pdsErrorString = "!ERROR_PDS: Format: PDSn-s-t n=pinGroup(1/2) s 0=stop 1=start, t=transition on falling(0) or rising(1) edge";
 const char* sslErrorString = "!ERROR_SSL: Format: SSLn n=0 (Off) or 1 (On)";
+const char* stiErrorString = "!ERROR_STI: Format: STIn n=1-4 (trigger input line)";
 const char* generalErrorString = "ERROR_UNKNOWN_COMMAND";
 
 
@@ -281,6 +296,7 @@ void setup()
   //configure TTL outputs 13-16 & TRIG 1-4
   mcp.digitalWrite(ttlblock1OE,LOW); //low for enable
   mcp.digitalWrite(ttlblock1DIR,LOW); //high to enable 3.3v -> 5V output
+  for(byte i=0;i<4;++i) { pinMode(trig[i],INPUT); } //any of the 4 trigger inputs can drive sequencing
   delay(10);
   //configureTrigger(trigMode); //will attach interrupt
   for(byte i=0;i<9;++i) { pinMode(ttl[i],OUTPUT); digitalWrite(ttl[i],LOW); } //SET OUTPUT PINS ON TTL AND CAMERA LINES
@@ -333,7 +349,7 @@ void setup()
   Serial.println(idname); //issue identifier so software knows we are running 
   // configureTrigger(trigMode); //will attach interrupt
   mcp.digitalWrite(15,HIGH); //indicate setup complete
-  triggerPinState = digitalReadFast(trig[0]);
+  triggerPinState = readTrigger();
   
 }
 
@@ -350,7 +366,7 @@ void loop()
   }
   */
 
-  if (triggerPinState != digitalReadFast(trig[0]))
+  if (triggerPinState != readTrigger())
   {
     triggerPinState = ! triggerPinState;
     if (useSignalLEDs_)
@@ -1053,6 +1069,22 @@ void loop()
         Serial.println(sslErrorString);
       }
     }
+
+    // Set Trigger Input line
+    else if (command == "STI")
+    {
+      long result = inputString.substring(3).toInt();
+      if (result >= 1 && result <= 4)
+      {
+        trigInput = result - 1;
+        triggerPinState = readTrigger(); // resync so switching lines does not register as an edge
+        Serial.print("!STI");
+        Serial.println(result);
+      } else
+      {
+        Serial.println(stiErrorString);
+      }
+    }
       
     //status commands
     else if(inputString == "STAT?\n")                     {debug();         }
@@ -1244,7 +1276,7 @@ void setDacCheckBlanking(byte dacNr)
 {
   if (dacBlanking[dacNr])
   {
-    triggerPinState = digitalReadFast(trig[0]);
+    triggerPinState = readTrigger();
     dacBlankOnLow[dacNr] == triggerPinState ? 
         setDac(dacNr, dacState[dacNr]) : setDac(dacNr, 0); 
   } else {
@@ -1257,7 +1289,7 @@ void setPinGroupCheckBlanking(byte pinGroup)
 {
   if (pinGroupBlanking[pinGroup])
   {
-    triggerPinState = digitalReadFast(trig[0]);
+    triggerPinState = readTrigger();
     pinGroupBlankOnLow[pinGroup] == triggerPinState ? 
         setPinGroup(pinGroup, pinGroupState[pinGroup]) : setPinGroup(pinGroup, 0); 
   } else {
@@ -1357,8 +1389,10 @@ void debug()
 {
   if(debugT < millis() ) //if this is the first time debug has run, this will execute, otherwise has enough time elapsed?
   {  
-    Serial.print("Input Trigger = ");
-    Serial.println(digitalReadFast(trig[0]));
+    Serial.print("Input Trigger ");
+    Serial.print(trigInput + 1);
+    Serial.print(" = ");
+    Serial.println(readTrigger());
     //Serial.print(", OpMode = ");
     //Serial.println(opMode);
     
