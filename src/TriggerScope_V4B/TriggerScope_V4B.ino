@@ -188,6 +188,13 @@ const byte DAC[NR_DACS] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; //MOVE THESE 
 const byte ttl[NR_DACS] = {5,6,7,8,14,15,16,17,20,25,26,27,38,39,40,41}; //ttl pin #'s
 const byte trig[4] = {0,1,2,3};
 
+// combined trigger state: high if any of the 4 trigger inputs is high
+inline bool readTrigger() __attribute__((always_inline));
+inline bool readTrigger(){
+    return digitalReadFast(trig[0]) || digitalReadFast(trig[1]) ||
+           digitalReadFast(trig[2]) || digitalReadFast(trig[3]);
+}
+
 /*HIGH SPEED PROGRAMMING MODE MEMORY BLOCK*/
 int    dacArray[NR_DAC_STATES][NR_DACS] = {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}; // DACprogram list
 uint8_t ttlArray[NR_DO_STATES][2] = {{0,0}}; // digital output states program list
@@ -1756,14 +1763,6 @@ inline void digitalWriteDirect(int, boolean) __attribute__((always_inline));
 
 void digitalWriteDirect(int pin, boolean val){
     digitalWriteFast(pin,val);
-}
-
-inline bool readTrigger() __attribute__((always_inline));
-
-// combined trigger state: high if any of the 4 trigger inputs is high
-bool readTrigger(){
-    return digitalReadFast(trig[0]) || digitalReadFast(trig[1]) ||
-           digitalReadFast(trig[2]) || digitalReadFast(trig[3]);
 }
 
 /*
