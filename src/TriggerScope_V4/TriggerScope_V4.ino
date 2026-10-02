@@ -281,6 +281,7 @@ void setup()
   //configure TTL outputs 13-16 & TRIG 1-4
   mcp.digitalWrite(ttlblock1OE,LOW); //low for enable
   mcp.digitalWrite(ttlblock1DIR,LOW); //high to enable 3.3v -> 5V output
+  for(byte i=0;i<4;++i) { pinMode(trig[i],INPUT); } //any of the 4 trigger inputs can drive sequencing
   delay(10);
   //configureTrigger(trigMode); //will attach interrupt
   for(byte i=0;i<9;++i) { pinMode(ttl[i],OUTPUT); digitalWrite(ttl[i],LOW); } //SET OUTPUT PINS ON TTL AND CAMERA LINES
@@ -333,7 +334,7 @@ void setup()
   Serial.println(idname); //issue identifier so software knows we are running 
   // configureTrigger(trigMode); //will attach interrupt
   mcp.digitalWrite(15,HIGH); //indicate setup complete
-  triggerPinState = digitalReadFast(trig[0]);
+  triggerPinState = readTrigger();
   
 }
 
@@ -350,7 +351,7 @@ void loop()
   }
   */
 
-  if (triggerPinState != digitalReadFast(trig[0]))
+  if (triggerPinState != readTrigger())
   {
     triggerPinState = ! triggerPinState;
     if (useSignalLEDs_)
@@ -1244,7 +1245,7 @@ void setDacCheckBlanking(byte dacNr)
 {
   if (dacBlanking[dacNr])
   {
-    triggerPinState = digitalReadFast(trig[0]);
+    triggerPinState = readTrigger();
     dacBlankOnLow[dacNr] == triggerPinState ? 
         setDac(dacNr, dacState[dacNr]) : setDac(dacNr, 0); 
   } else {
@@ -1257,7 +1258,7 @@ void setPinGroupCheckBlanking(byte pinGroup)
 {
   if (pinGroupBlanking[pinGroup])
   {
-    triggerPinState = digitalReadFast(trig[0]);
+    triggerPinState = readTrigger();
     pinGroupBlankOnLow[pinGroup] == triggerPinState ? 
         setPinGroup(pinGroup, pinGroupState[pinGroup]) : setPinGroup(pinGroup, 0); 
   } else {
@@ -1754,6 +1755,14 @@ inline void digitalWriteDirect(int, boolean) __attribute__((always_inline));
 void digitalWriteDirect(int pin, boolean val){
     if(pin < 9) {digitalWriteFast(pin,val);}
     else if(pin>8) {mcp.digitalWrite(pin,val);}
+}
+
+inline bool readTrigger() __attribute__((always_inline));
+
+// combined trigger state: high if any of the 4 trigger inputs is high
+bool readTrigger(){
+    return digitalReadFast(trig[0]) || digitalReadFast(trig[1]) ||
+           digitalReadFast(trig[2]) || digitalReadFast(trig[3]);
 }
 
 /*
