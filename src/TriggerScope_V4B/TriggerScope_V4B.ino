@@ -130,8 +130,8 @@ Contact Advanced Research Consulting for Driver libraries! www.advancedresearch.
 #define ttlblock3DIR 36
 
 #define NR_DACS 16
-#define NR_DAC_STATES 1200
-#define NR_DO_STATES 1200
+#define NR_DAC_STATES 2048
+#define NR_DO_STATES 2048
 
 
 String idname = "ARC TRIGGERSCOPE 16 R4 Board 4B v.620-MM";
